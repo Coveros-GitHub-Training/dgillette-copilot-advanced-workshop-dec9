@@ -82,4 +82,39 @@ public class RecipeController {
         recipeService.deleteRecipe(id);
         return ResponseEntity.noContent().build();
     }
+    
+    /**
+     * Add a rating to a recipe
+     * @param id the recipe ID
+     * @param request the rating request containing the rating value
+     * @return the updated recipe with new average rating
+     */
+    @PutMapping("/{id}/rate")
+    public ResponseEntity<Recipe> rateRecipe(
+            @PathVariable Long id,
+            @RequestBody RatingRequest request) {
+        try {
+            Recipe updatedRecipe = recipeService.addRating(id, request.getRating());
+            return ResponseEntity.ok(updatedRecipe);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+    
+    /**
+     * Request DTO for rating a recipe
+     */
+    public static class RatingRequest {
+        private Integer rating;
+        
+        public Integer getRating() {
+            return rating;
+        }
+        
+        public void setRating(Integer rating) {
+            this.rating = rating;
+        }
+    }
 }
