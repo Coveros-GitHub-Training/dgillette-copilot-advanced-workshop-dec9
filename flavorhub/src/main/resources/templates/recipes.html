@@ -191,6 +191,104 @@
             color: #667eea;
             margin-bottom: 10px;
         }
+        
+        .rating-container {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .rating-display {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1.1em;
+        }
+        
+        .stars {
+            color: #667eea;
+            letter-spacing: 2px;
+        }
+        
+        .stars-empty {
+            color: #ddd;
+        }
+        
+        .rating-info {
+            font-size: 0.85em;
+            color: #666;
+        }
+        
+        .rate-button {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-size: 0.9em;
+        }
+        
+        .rate-button:hover {
+            background: #5568d3;
+        }
+        
+        .rating-widget {
+            display: none;
+            margin-top: 10px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        
+        .rating-widget.active {
+            display: block;
+        }
+        
+        .rating-widget h4 {
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 0.95em;
+        }
+        
+        .star-input {
+            display: flex;
+            gap: 5px;
+            font-size: 2em;
+            cursor: pointer;
+        }
+        
+        .star-input span {
+            color: #ddd;
+            transition: color 0.2s;
+            user-select: none;
+        }
+        
+        .star-input span:hover,
+        .star-input span.hover {
+            color: #667eea;
+        }
+        
+        .star-input span.filled {
+            color: #667eea;
+        }
+        
+        @media (max-width: 768px) {
+            .recipes-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .filters {
+                flex-direction: column;
+            }
+            
+            .star-input {
+                font-size: 1.5em;
+            }
+        }
     </style>
 </head>
 <body>
@@ -231,19 +329,224 @@
             </div>
             
             <div class="recipes-grid" id="recipesGrid">
-                <!-- TODO: Populate recipes dynamically from API -->
+                <!-- Recipes will be populated dynamically from API -->
                 <div class="no-recipes">
-                    <h2>No Recipes Found</h2>
-                    <p>Try adjusting your filters or check back later!</p>
+                    <h2>Loading Recipes...</h2>
+                    <p>Please wait while we fetch the recipes.</p>
                 </div>
             </div>
         </div>
     </div>
     
     <script>
-        // TODO: Add JavaScript to fetch and display recipes from API
-        // TODO: Implement filtering functionality
-        // TODO: Add search functionality
+        let allRecipes = [];
+        
+        // Fetch recipes from API on page load
+        async function fetchRecipes() {
+            try {
+                const response = await fetch('/api/recipes');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch recipes');
+                }
+                allRecipes = await response.json();
+                displayRecipes(allRecipes);
+            } catch (error) {
+                console.error('Error loading recipes:', error);
+                showError('Unable to load recipes. Please try again later.');
+            }
+        }
+        
+        // Display recipes in the grid
+        function displayRecipes(recipes) {
+            const grid = document.getElementById('recipesGrid');
+            
+            if (recipes.length === 0) {
+                grid.innerHTML = `
+                    <div class="no-recipes">
+                        <h2>No Recipes Found</h2>
+                        <p>Try adjusting your filters or check back later!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            grid.innerHTML = recipes.map(recipe => createRecipeCard(recipe)).join('');
+            attachRatingHandlers();
+        }
+        
+        // Create HTML for a recipe card
+        function createRecipeCard(recipe) {
+            const stars = generateStars(recipe.averageRating || 0);
+            const difficultyClass = (recipe.difficultyLevel || 'easy').toLowerCase();
+            const totalTime = (recipe.prepTime || 0) + (recipe.cookTime || 0);
+            
+            return `
+                <div class="recipe-card" data-recipe-id="${recipe.id}">
+                    <div class="recipe-header">
+                        <h3>${recipe.name}</h3>
+                        <span class="recipe-cuisine">${recipe.cuisineType || 'Unknown'}</span>
+                    </div>
+                    <div class="recipe-body">
+                        <div class="recipe-meta">
+                            <span>⏱️ ${totalTime} min</span>
+                            <span class="difficulty ${difficultyClass}">${recipe.difficultyLevel || 'Easy'}</span>
+                        </div>
+                        <p class="recipe-description">${recipe.description || 'No description available'}</p>
+                        <div class="rating-container">
+                            <div class="rating-display">
+                                <span class="stars">${stars.filled}</span><span class="stars-empty">${stars.empty}</span>
+                                <span class="rating-info">${(recipe.averageRating || 0).toFixed(1)} stars (${recipe.ratingCount || 0} ratings)</span>
+                            </div>
+                            <button class="rate-button" onclick="toggleRatingWidget(${recipe.id})">
+                                Rate this recipe
+                            </button>
+                            <div class="rating-widget" id="rating-widget-${recipe.id}">
+                                <h4>Rate this recipe:</h4>
+                                <div class="star-input" data-recipe-id="${recipe.id}">
+                                    <span data-value="1">★</span>
+                                    <span data-value="2">★</span>
+                                    <span data-value="3">★</span>
+                                    <span data-value="4">★</span>
+                                    <span data-value="5">★</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="recipe-footer">
+                            <span class="servings">🍽️ Serves ${recipe.servings || 1}</span>
+                            <a href="#" class="view-recipe">View Recipe</a>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Generate star display
+        function generateStars(rating) {
+            const fullStars = Math.floor(rating);
+            const emptyStars = 5 - fullStars;
+            return {
+                filled: '★'.repeat(fullStars),
+                empty: '★'.repeat(emptyStars)
+            };
+        }
+        
+        // Toggle rating widget visibility
+        function toggleRatingWidget(recipeId) {
+            const widget = document.getElementById(`rating-widget-${recipeId}`);
+            widget.classList.toggle('active');
+        }
+        
+        // Attach event handlers to rating stars
+        function attachRatingHandlers() {
+            const starInputs = document.querySelectorAll('.star-input');
+            
+            starInputs.forEach(input => {
+                const stars = input.querySelectorAll('span');
+                
+                stars.forEach((star, index) => {
+                    // Hover effect
+                    star.addEventListener('mouseenter', () => {
+                        stars.forEach((s, i) => {
+                            if (i <= index) {
+                                s.classList.add('hover');
+                            } else {
+                                s.classList.remove('hover');
+                            }
+                        });
+                    });
+                    
+                    // Click to submit rating
+                    star.addEventListener('click', async () => {
+                        const recipeId = input.dataset.recipeId;
+                        const rating = parseInt(star.dataset.value);
+                        await submitRating(recipeId, rating);
+                    });
+                });
+                
+                // Remove hover effect when leaving the star input area
+                input.addEventListener('mouseleave', () => {
+                    stars.forEach(s => s.classList.remove('hover'));
+                });
+            });
+        }
+        
+        // Submit rating to API
+        async function submitRating(recipeId, rating) {
+            try {
+                const response = await fetch(`/api/recipes/${recipeId}/rate`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ rating: rating })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to submit rating');
+                }
+                
+                const updatedRecipe = await response.json();
+                
+                // Update the recipe in the allRecipes array
+                const index = allRecipes.findIndex(r => r.id === updatedRecipe.id);
+                if (index !== -1) {
+                    allRecipes[index] = updatedRecipe;
+                }
+                
+                // Refresh the display
+                displayRecipes(filterRecipes());
+                
+                // Show success message
+                alert(`Thank you! You rated this recipe ${rating} stars.`);
+            } catch (error) {
+                console.error('Error submitting rating:', error);
+                alert('Failed to submit rating. Please try again.');
+            }
+        }
+        
+        // Filter recipes based on selected criteria
+        function filterRecipes() {
+            const difficulty = document.getElementById('difficulty').value;
+            const cuisine = document.getElementById('cuisine').value;
+            const searchTerm = document.getElementById('search').value.toLowerCase();
+            
+            return allRecipes.filter(recipe => {
+                const matchesDifficulty = !difficulty || recipe.difficultyLevel === difficulty;
+                const matchesCuisine = !cuisine || recipe.cuisineType === cuisine;
+                const matchesSearch = !searchTerm || 
+                    recipe.name.toLowerCase().includes(searchTerm) ||
+                    (recipe.description && recipe.description.toLowerCase().includes(searchTerm));
+                
+                return matchesDifficulty && matchesCuisine && matchesSearch;
+            });
+        }
+        
+        // Show error message
+        function showError(message) {
+            const grid = document.getElementById('recipesGrid');
+            grid.innerHTML = `
+                <div class="no-recipes">
+                    <h2>Error</h2>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+        
+        // Add event listeners for filters
+        document.getElementById('difficulty').addEventListener('change', () => {
+            displayRecipes(filterRecipes());
+        });
+        
+        document.getElementById('cuisine').addEventListener('change', () => {
+            displayRecipes(filterRecipes());
+        });
+        
+        document.getElementById('search').addEventListener('input', () => {
+            displayRecipes(filterRecipes());
+        });
+        
+        // Load recipes on page load
+        fetchRecipes();
     </script>
 </body>
 </html>
