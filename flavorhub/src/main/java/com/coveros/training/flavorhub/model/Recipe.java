@@ -77,7 +77,5 @@ public class Recipe {
         this.servings = servings;
         this.difficultyLevel = difficultyLevel;
         this.cuisineType = cuisineType;
-        this.averageRating = 0.0;
-        this.ratingCount = 0;
     }
 }
